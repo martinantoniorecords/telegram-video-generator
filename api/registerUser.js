@@ -1,4 +1,4 @@
-import supabase from "./db";
+import { supabase } from "./db.js"; // ✅ named import
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -10,8 +10,8 @@ export default async function handler(req, res) {
 
   try {
     const { data, error } = await supabase
-      .from("ilter")
-      .insert({ username, email })
+      .from("rt") // ✅ your Supabase table
+      .insert([{ username, email, credits: 0 }])
       .select()
       .single();
 
