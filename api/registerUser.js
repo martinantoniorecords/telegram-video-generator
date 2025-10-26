@@ -10,7 +10,7 @@ export default async function handler(req, res) {
 
   try {
     const { data, error } = await supabase
-      .from("rt") // ✅ your Supabase table
+      .from("users") // ✅ your Supabase table
       .insert([{ username, email, credits: 0 }])
       .select()
       .single();
