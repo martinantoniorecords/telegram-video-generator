@@ -1,13 +1,11 @@
-import { addCredits, getUser } from "./db";
+import { getUser, addCredits } from "./db";
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   const { userId, amount } = req.body;
 
-  if (!userId || !amount || typeof amount !== "number" || amount <= 0) {
+  if (!userId || !amount || amount <= 0) {
     return res.status(400).json({ error: "Invalid parameters" });
   }
 
@@ -16,12 +14,11 @@ export default async function handler(req, res) {
     if (!user) return res.status(404).json({ error: "User not found" });
 
     const updatedUser = await addCredits(userId, amount);
-    if (!updatedUser) throw new Error("Failed to add credits");
 
     res.status(200).json({
       success: true,
       credits: updatedUser.credits,
-      message: `✅ Added ${amount} credits to ${userId}`,
+      message: `✅ Purchased ${amount} credits`,
     });
   } catch (err) {
     console.error("purchaseCredits error:", err);

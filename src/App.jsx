@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 
 export default function App() {
-  const [userId, setUserId] = useState(null); // will hold numeric ID
+  const [userId, setUserId] = useState(null); // UUID
   const [username, setUsername] = useState("");
   const [credits, setCredits] = useState(null);
   const [status, setStatus] = useState("");
@@ -10,12 +10,12 @@ export default function App() {
   const [buyAmount, setBuyAmount] = useState("");
   const [showRegister, setShowRegister] = useState(false);
 
-  // Check if user exists in localStorage
+  // On load, check localStorage for UUID
   useEffect(() => {
     const savedId = localStorage.getItem("userId");
     if (savedId) {
-      setUserId(Number(savedId));
-      fetchCredits(Number(savedId));
+      setUserId(savedId);
+      fetchCredits(savedId);
     } else {
       setShowRegister(true);
     }
@@ -26,13 +26,13 @@ export default function App() {
       const res = await fetch(`/api/getUserCredits?userId=${id}`);
       const data = await res.json();
       if (data.success) setCredits(data.credits);
+      else setStatus("❌ " + (data.error || "Failed to fetch credits"));
     } catch (err) {
       console.error(err);
-      setStatus("❌ Failed to fetch credits");
+      setStatus("❌ Error fetching credits");
     }
   };
 
-  // Register new user
   const registerUser = async () => {
     if (!username) return setStatus("❌ Enter a username");
 
@@ -58,7 +58,6 @@ export default function App() {
     }
   };
 
-  // Buy credits (same as before)
   const purchaseCredits = async () => {
     const amount = parseInt(buyAmount, 10);
     if (!amount || amount <= 0) {
@@ -86,7 +85,6 @@ export default function App() {
     }
   };
 
-  // Generate image (same as before)
   const generateImage = async () => {
     if (credits <= 0) {
       setStatus("❌ No credits left");

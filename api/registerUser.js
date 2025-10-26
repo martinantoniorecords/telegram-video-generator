@@ -10,7 +10,7 @@ export default async function handler(req, res) {
     const user = await createUser(username);
     res.status(200).json({
       success: true,
-      userId: user.id,
+      userId: user.id, // UUID
       credits: user.credits,
     });
   } catch (err) {
