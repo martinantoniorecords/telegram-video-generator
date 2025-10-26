@@ -1,5 +1,4 @@
 import Stripe from "stripe";
-import { supabase } from "./db.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -21,6 +20,7 @@ export default async function handler(req, res) {
         quantity: 1,
       }],
       mode: "payment",
+      client_reference_id: userId, // useful for webhook
       success_url: `${req.headers.origin}/payment-success?userId=${userId}`,
       cancel_url: `${req.headers.origin}/payment-cancelled`,
     });
