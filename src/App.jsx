@@ -1,102 +1,95 @@
 import React, { useState, useEffect } from "react";
 
-export default function App() {
-  const [message, setMessage] = useState("");
-  const [status, setStatus] = useState("Waiting for user messages...");
-  const [videoUrl, setVideoUrl] = useState(null);
-  const [lastTelegramMessage, setLastTelegramMessage] = useState(null);
+const userId = "user1"; // demo user
 
-  // Function to send message from website to Telegram bot
-  const sendMessage = async () => {
-    if (!message.trim()) return;
-    setStatus("Sending...");
+export default function App() {
+  const [prompt, setPrompt] = useState("");
+  const [status, setStatus] = useState("");
+  const [image, setImage] = useState(null);
+  const [credits, setCredits] = useState(null);
+
+  useEffect(() => {
+    async function fetchCredits() {
+      const res = await fetch(`/api/getUserCredits?userId=${userId}`);
+      const data = await res.json();
+      if (data.success) setCredits(data.credits);
+    }
+    fetchCredits();
+  }, []);
+
+  const generateImage = async () => {
+    if (credits <= 0) {
+      setStatus("❌ No credits left");
+      return;
+    }
+
+    setStatus("Generating...");
+    setImage(null);
+
     try {
-      const res = await fetch("/api/sendToTelegram", {
+      const res = await fetch("/api/generatePhoto", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ userId, prompt }),
       });
       const data = await res.json();
+
       if (data.success) {
-        setStatus("✅ Sent to bot. Waiting for video...");
-        setMessage("");
+        setImage(data.image);
+        setCredits(data.creditsLeft);
+        setStatus("✅ Image generated!");
       } else {
-        setStatus("❌ Error sending message");
+        setStatus("❌ " + data.error);
       }
     } catch (err) {
       console.error(err);
-      setStatus("❌ Error sending message");
+      setStatus("❌ Backend request failed");
     }
   };
 
-  // Poll for Telegram messages and video updates
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        // Latest Telegram message
-        const msgRes = await fetch("/api/latestMessage");
-        const msgData = await msgRes.json();
-        if (msgData.message && msgData.message !== lastTelegramMessage) {
-          setLastTelegramMessage(msgData.message);
-          setStatus(`📩 New message from Telegram user: ${msgData.message}`);
-        }
+  const purchaseCredits = async () => {
+    const amount = parseInt(prompt("Enter credits to purchase:"), 10);
+    if (!amount || amount <= 0) return;
 
-        // Video ready status
-        const videoRes = await fetch("/api/videoReady");
-        const videoData = await videoRes.json();
-        if (videoData.videoUrl && videoData.videoUrl !== videoUrl) {
-          setVideoUrl(videoData.videoUrl);
-          setStatus("🎥 Your video is ready!");
-        }
-      } catch (err) {
-        console.error("Polling error:", err);
-        setStatus("❌ Error fetching updates");
-      }
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [lastTelegramMessage, videoUrl]);
+    const res = await fetch("/api/purchaseCredits", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, amount }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      setCredits(data.credits);
+      setStatus(`✅ Purchased ${amount} credits`);
+    }
+  };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-purple-700 to-black text-white p-6">
-      <h1 className="text-3xl font-bold mb-6">🎬 Telegram Video Generator</h1>
+    <div className="min-h-screen flex flex-col items-center justify-center p-6">
+      <h1 className="text-3xl font-bold mb-6">Stable Diffusion Generator (Credits)</h1>
+      <p>Credits left: {credits !== null ? credits : "..."}</p>
 
-      <p className="mb-4 text-gray-300">{status}</p>
+      <input
+        value={prompt}
+        onChange={(e) => setPrompt(e.target.value)}
+        placeholder="Enter your prompt..."
+        className="p-3 mb-4 border rounded w-80"
+      />
 
-      {/* Input to send message from website */}
-      <div className="flex mb-6">
-        <input
-          className="p-3 rounded-l text-black w-80"
-          placeholder="Describe your video..."
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-        />
-        <button
-          onClick={sendMessage}
-          className="bg-green-500 hover:bg-green-600 px-6 py-3 rounded-r-xl font-semibold shadow-lg"
-        >
-          Send 🚀
+      <div className="flex gap-4">
+        <button onClick={generateImage} className="px-6 py-3 bg-blue-500 text-white rounded">
+          Generate Image
+        </button>
+        <button onClick={purchaseCredits} className="px-6 py-3 bg-green-500 text-white rounded">
+          Buy Credits
         </button>
       </div>
 
-      {/* Show last Telegram message */}
-      {lastTelegramMessage && (
-        <div className="mb-6 p-4 bg-gray-800 rounded-lg shadow-md w-80">
-          <strong>Telegram user message:</strong>
-          <p>{lastTelegramMessage}</p>
-        </div>
-      )}
+      <p className="mt-4">{status}</p>
 
-      {/* Video display */}
-      {videoUrl && (
-        <div className="mt-4">
-          <h2 className="text-xl mb-3">🎥 Your video is ready!</h2>
-          <video src={videoUrl} controls className="w-80 rounded-lg shadow-xl" />
+      {image && (
+        <div className="mt-6">
+          <img src={image} alt="Generated" className="rounded shadow-lg" />
         </div>
-      )}
-
-      {!lastTelegramMessage && !videoUrl && (
-        <p className="text-gray-400">Waiting for a user to send a message on Telegram or via website...</p>
       )}
     </div>
   );
