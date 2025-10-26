@@ -1,14 +1,13 @@
-export async function createUser(username) {
-    const { data, error } = await supabase
-      .from("ilter")
-      .insert({ username }) // optionally add email: "demo@example.com"
-      .select()
-      .single();
-  
-    if (error) {
-      console.error("createUser error:", error);
-      throw error;  // this will appear in Vercel logs
-    }
-    return data;
-  }
-  
+// /api/db.js
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error("❌ Missing Supabase environment variables");
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+export default supabase;
