@@ -4,16 +4,16 @@ export default function App() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("");
-  const [userId, setUserId] = useState(localStorage.getItem("userId"));
+  const [id, setId] = useState(localStorage.getItem("id"));
   const [credits, setCredits] = useState(null);
 
   // Fetch credits if user already registered
   useEffect(() => {
-    if (!userId) return;
+    if (!id) return;
 
     async function fetchCredits() {
       try {
-        const res = await fetch(`/api/user?userId=${userId}`);
+        const res = await fetch(`/api/user?id=${id}`);
         const data = await res.json();
         if (data.success) setCredits(data.credits);
       } catch (err) {
@@ -22,7 +22,7 @@ export default function App() {
     }
 
     fetchCredits();
-  }, [userId]);
+  }, [id]);
 
   // Register user
   const handleRegister = async () => {
@@ -42,8 +42,8 @@ export default function App() {
 
       const data = await res.json();
       if (data.success) {
-        localStorage.setItem("userId", data.userId);
-        setUserId(data.userId);
+        localStorage.setItem("id", data.id);
+        setId(data.id);
         setCredits(data.credits);
         setStatus(`✅ Registered! Credits: ${data.credits}`);
       } else {
@@ -57,21 +57,23 @@ export default function App() {
 
   // Buy €5 credits via Stripe
   const handleBuyCredits = async () => {
-    if (!userId) {
+    if (!id) {
       setStatus("❌ Please register first");
       return;
     }
+
+    setStatus("Redirecting to Stripe...");
 
     try {
       const res = await fetch("/api/payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId }),
+        body: JSON.stringify({ id }),
       });
 
       const data = await res.json();
       if (data.url) {
-        window.location.href = data.url; // Redirect to Stripe Checkout
+        window.location.href = data.url; // redirect to Stripe Checkout
       } else {
         setStatus("❌ Failed to create checkout session");
       }
@@ -85,7 +87,7 @@ export default function App() {
     <div className="p-6 text-center">
       <h1 className="text-2xl font-bold mb-4">Register & Buy Credits</h1>
 
-      {!userId && (
+      {!id && (
         <>
           <input
             type="text"
@@ -112,7 +114,7 @@ export default function App() {
         </>
       )}
 
-      {userId && (
+      {id && (
         <>
           <p className="mb-2">Credits: {credits !== null ? credits : "..."}</p>
           <button

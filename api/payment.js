@@ -1,15 +1,15 @@
 import Stripe from "stripe";
+import { supabase } from "../../lib/supabaseClient";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { userId } = req.body;
-  if (!userId) return res.status(400).json({ error: "Missing userId" });
+  const { id } = req.body;
+  if (!id) return res.status(400).json({ error: "Missing id" });
 
   try {
-    // Price: €5 -> 500 cents
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items: [
@@ -17,20 +17,20 @@ export default async function handler(req, res) {
           price_data: {
             currency: "eur",
             product_data: { name: "5€ Credits" },
-            unit_amount: 500,
+            unit_amount: 500, // €5
           },
           quantity: 1,
         },
       ],
       mode: "payment",
-      success_url: `${process.env.NEXT_PUBLIC_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_URL}/cancel`,
-      metadata: { userId }, // Save userId for webhook
+      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/success?id=${id}`,
+      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/`,
+      metadata: { id },
     });
 
-    res.status(200).json({ url: session.url });
+    res.json({ url: session.url });
   } catch (err) {
-    console.error("Stripe error:", err);
-    res.status(500).json({ error: "Stripe server error" });
+    console.error(err);
+    res.status(500).json({ error: err.message });
   }
 }
