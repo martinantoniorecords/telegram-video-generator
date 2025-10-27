@@ -3,9 +3,9 @@ import React, { useState, useEffect } from "react";
 export default function RegisterForm() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
+  const [credits, setCredits] = useState(0);
   const [status, setStatus] = useState("");
   const [userId, setUserId] = useState(localStorage.getItem("userId"));
-  const [credits, setCredits] = useState(null);
 
   // Fetch user info if already registered
   useEffect(() => {
@@ -26,7 +26,6 @@ export default function RegisterForm() {
     fetchUser();
   }, [userId]);
 
-  // Register user
   const handleRegister = async () => {
     if (!username) {
       setStatus("❌ Please enter a username");
@@ -42,7 +41,7 @@ export default function RegisterForm() {
         body: JSON.stringify({
           username,
           email,
-          credits: 0, // start with 0 credits
+          credits, // start with user-specified credits (optional)
         }),
       });
 
@@ -61,7 +60,6 @@ export default function RegisterForm() {
     }
   };
 
-  // Buy €5 credits via Stripe
   const handleBuyCredits = async () => {
     if (!userId) {
       setStatus("❌ Please register first");
@@ -80,7 +78,6 @@ export default function RegisterForm() {
       const data = await res.json();
 
       if (data.url) {
-        // Redirect to Stripe Checkout
         window.location.href = data.url;
       } else {
         setStatus("❌ Failed to create checkout session");
@@ -107,9 +104,17 @@ export default function RegisterForm() {
           <br />
           <input
             type="email"
-            placeholder="Email (optional)"
+            placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            className="p-2 border rounded w-64 mb-2"
+          />
+          <br />
+          <input
+            type="number"
+            placeholder="Credits (start with)"
+            value={credits}
+            onChange={(e) => setCredits(Number(e.target.value))}
             className="p-2 border rounded w-64 mb-2"
           />
           <br />
