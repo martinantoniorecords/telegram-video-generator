@@ -1,14 +1,13 @@
-// /api/payment.js
 import Stripe from "stripe";
-import { supabase } from "./db";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== "POST") return res.status(405).end("Method Not Allowed");
 
-  const { id } = req.body; // user id
-  if (!id) return res.status(400).json({ error: "User ID is required" });
+  const { id } = req.body; // user.id from Supabase
+
+  if (!id) return res.status(400).json({ error: "Missing user id" });
 
   try {
     const session = await stripe.checkout.sessions.create({
@@ -17,21 +16,22 @@ export default async function handler(req, res) {
         {
           price_data: {
             currency: "eur",
-            product_data: { name: "€5 Credits" },
-            unit_amount: 500,
+            product_data: { name: "5€ Credits" },
+            unit_amount: 500, // €5
           },
           quantity: 1,
         },
       ],
       mode: "payment",
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/cancel`,
-      metadata: { user_id: id },
+      metadata: { user_id: id }, // store user id like PHP
+      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/success?id=${id}`,
+      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/canceled`,
     });
 
-    res.status(200).json({ url: session.url });
+    // Just redirect like your PHP script
+    res.redirect(303, session.url);
   } catch (err) {
-    console.error("Stripe error:", err);
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    res.status(500).send("Stripe server error");
   }
 }

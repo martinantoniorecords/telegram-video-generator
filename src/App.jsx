@@ -1,19 +1,28 @@
 import React, { useState, useEffect } from "react";
 
-export default function App() {
+export default function RegisterForm() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("");
-  const [id, setId] = useState(localStorage.getItem("id"));
+  const [userId, setUserId] = useState(localStorage.getItem("userId"));
   const [credits, setCredits] = useState(null);
 
-  // Fetch credits if user already registered
+  // Fetch credits if user already registered or returning from Stripe
   useEffect(() => {
-    if (!id) return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const successCredits = urlParams.get("credits");
+    if (successCredits) {
+      setCredits(Number(successCredits));
+      setStatus("✅ Purchase successful!");
+      // Remove credits param from URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    if (!userId) return;
 
     async function fetchCredits() {
       try {
-        const res = await fetch(`/api/user?id=${id}`);
+        const res = await fetch(`/api/user?id=${userId}`);
         const data = await res.json();
         if (data.success) setCredits(data.credits);
       } catch (err) {
@@ -22,7 +31,7 @@ export default function App() {
     }
 
     fetchCredits();
-  }, [id]);
+  }, [userId]);
 
   // Register user
   const handleRegister = async () => {
@@ -42,8 +51,8 @@ export default function App() {
 
       const data = await res.json();
       if (data.success) {
-        localStorage.setItem("id", data.id);
-        setId(data.id);
+        localStorage.setItem("userId", data.id);
+        setUserId(data.id);
         setCredits(data.credits);
         setStatus(`✅ Registered! Credits: ${data.credits}`);
       } else {
@@ -57,25 +66,24 @@ export default function App() {
 
   // Buy €5 credits via Stripe
   const handleBuyCredits = async () => {
-    if (!id) {
+    if (!userId) {
       setStatus("❌ Please register first");
       return;
     }
 
-    setStatus("Redirecting to Stripe...");
-
     try {
+      // This triggers redirect to Stripe Checkout
       const res = await fetch("/api/payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ id: userId }),
       });
 
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url; // redirect to Stripe Checkout
+      if (res.redirected) {
+        window.location.href = res.url; // redirect to Stripe
       } else {
-        setStatus("❌ Failed to create checkout session");
+        const data = await res.json();
+        setStatus("❌ " + (data.error || "Stripe checkout failed"));
       }
     } catch (err) {
       console.error(err);
@@ -87,7 +95,7 @@ export default function App() {
     <div className="p-6 text-center">
       <h1 className="text-2xl font-bold mb-4">Register & Buy Credits</h1>
 
-      {!id && (
+      {!userId && (
         <>
           <input
             type="text"
@@ -114,7 +122,7 @@ export default function App() {
         </>
       )}
 
-      {id && (
+      {userId && (
         <>
           <p className="mb-2">Credits: {credits !== null ? credits : "..."}</p>
           <button
