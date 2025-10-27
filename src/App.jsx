@@ -7,7 +7,7 @@ export default function RegisterForm() {
   const [userId, setUserId] = useState(localStorage.getItem("userId"));
   const [credits, setCredits] = useState(null);
 
-  // Fetch credits if user already registered
+  // Fetch user credits if already registered
   useEffect(() => {
     if (!userId) return;
 
@@ -15,9 +15,13 @@ export default function RegisterForm() {
       try {
         const res = await fetch(`/api/user?userId=${userId}`);
         const data = await res.json();
-        if (data.success) setCredits(data.credits);
+        if (data.success) {
+          setCredits(data.credits);
+        } else {
+          console.error("❌ Failed to fetch credits:", data.error);
+        }
       } catch (err) {
-        console.error(err);
+        console.error("❌ Error fetching credits:", err);
       }
     }
 
@@ -50,17 +54,19 @@ export default function RegisterForm() {
         setStatus("❌ " + (data.error || "Registration failed"));
       }
     } catch (err) {
-      console.error(err);
+      console.error("Network error:", err);
       setStatus("❌ Network error");
     }
   };
 
-  // Buy €5 credits via Stripe
+  // Buy €5 credits via Stripe Checkout
   const handleBuyCredits = async () => {
     if (!userId) {
       setStatus("❌ Please register first");
       return;
     }
+
+    setStatus("Connecting to Stripe...");
 
     try {
       const res = await fetch("/api/payment", {
@@ -69,24 +75,34 @@ export default function RegisterForm() {
         body: JSON.stringify({ userId }),
       });
 
-      const data = await res.json();
-      if (data.url) {
-        // Redirect user to Stripe Checkout
-        window.location.href = data.url;
-      } else {
-        setStatus("❌ Failed to create checkout session");
+      // Sometimes the backend returns plain text instead of JSON when error happens
+      const text = await res.text();
+
+      try {
+        const data = JSON.parse(text);
+
+        if (data.url) {
+          window.location.href = data.url;
+        } else {
+          setStatus("❌ " + (data.error || "Failed to create checkout session"));
+          console.error("Stripe error response:", data);
+        }
+      } catch {
+        console.error("Raw Stripe response (not JSON):", text);
+        setStatus("❌ Stripe server error");
       }
     } catch (err) {
-      console.error(err);
+      console.error("Stripe network error:", err);
       setStatus("❌ Stripe request failed");
     }
   };
 
+  // UI
   return (
     <div className="p-6 text-center">
       <h1 className="text-2xl font-bold mb-4">Register & Buy Credits</h1>
 
-      {!userId && (
+      {!userId ? (
         <>
           <input
             type="text"
@@ -111,9 +127,7 @@ export default function RegisterForm() {
             Register
           </button>
         </>
-      )}
-
-      {userId && (
+      ) : (
         <>
           <p className="mb-2">Credits: {credits !== null ? credits : "..."}</p>
           <button
