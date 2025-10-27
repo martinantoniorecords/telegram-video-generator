@@ -4,25 +4,27 @@ export default function RegisterForm() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("");
-  const [user, setUser] = useState(null); // store user object including id and credits
+  const [userId, setUserId] = useState(localStorage.getItem("userId"));
+  const [credits, setCredits] = useState(null);
 
-  // Fetch user if already registered
+  // Fetch user info if already registered
   useEffect(() => {
-    const storedId = localStorage.getItem("userId");
-    if (!storedId) return;
+    if (!userId) return;
 
     async function fetchUser() {
       try {
-        const res = await fetch(`/api/user?id=${storedId}`);
+        const res = await fetch(`/api/user?id=${userId}`);
         const data = await res.json();
-        if (data.success) setUser(data.user);
+        if (data.success) {
+          setCredits(data.user.credits);
+        }
       } catch (err) {
         console.error(err);
       }
     }
 
     fetchUser();
-  }, []);
+  }, [userId]);
 
   // Register user
   const handleRegister = async () => {
@@ -30,19 +32,25 @@ export default function RegisterForm() {
       setStatus("❌ Please enter a username");
       return;
     }
+
     setStatus("Registering...");
 
     try {
       const res = await fetch("/api/user", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, email }),
+        body: JSON.stringify({
+          username,
+          email,
+          credits: 0, // start with 0 credits
+        }),
       });
 
       const data = await res.json();
       if (data.success) {
         localStorage.setItem("userId", data.user.id);
-        setUser(data.user);
+        setUserId(data.user.id);
+        setCredits(data.user.credits);
         setStatus(`✅ Registered! Credits: ${data.user.credits}`);
       } else {
         setStatus("❌ " + (data.error || "Registration failed"));
@@ -55,23 +63,25 @@ export default function RegisterForm() {
 
   // Buy €5 credits via Stripe
   const handleBuyCredits = async () => {
-    if (!user) {
+    if (!userId) {
       setStatus("❌ Please register first");
       return;
     }
 
-    setStatus("Redirecting to Stripe Checkout...");
+    setStatus("Redirecting to Stripe...");
 
     try {
       const res = await fetch("/api/payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: user.id }),
+        body: JSON.stringify({ id: userId }),
       });
 
       const data = await res.json();
+
       if (data.url) {
-        window.location.href = data.url; // redirect to Stripe Checkout
+        // Redirect to Stripe Checkout
+        window.location.href = data.url;
       } else {
         setStatus("❌ Failed to create checkout session");
       }
@@ -85,7 +95,7 @@ export default function RegisterForm() {
     <div className="p-6 text-center">
       <h1 className="text-2xl font-bold mb-4">Register & Buy Credits</h1>
 
-      {!user && (
+      {!userId && (
         <>
           <input
             type="text"
@@ -112,9 +122,9 @@ export default function RegisterForm() {
         </>
       )}
 
-      {user && (
+      {userId && (
         <>
-          <p className="mb-2">Credits: {user.credits}</p>
+          <p className="mb-2">Credits: {credits !== null ? credits : "..."}</p>
           <button
             onClick={handleBuyCredits}
             className="bg-green-600 text-white px-4 py-2 rounded mt-2"
