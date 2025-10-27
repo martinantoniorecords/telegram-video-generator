@@ -1,44 +1,34 @@
-// /api/payment.js
 import Stripe from "stripe";
+import { supabase } from "./db";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export default async function handler(req, res) {
-  console.log("👉 Incoming request to /api/payment");
+  if (req.method !== "POST") return res.status(405).end();
 
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
-  // Check if key exists
-  if (!process.env.STRIPE_SECRET_KEY) {
-    console.error("❌ STRIPE_SECRET_KEY missing in environment");
-    return res.status(500).json({ error: "Missing Stripe secret key" });
-  }
-
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  const { userId } = req.body;
+  if (!userId) return res.status(400).json({ error: "Missing userId" });
 
   try {
-    console.log("✅ Creating Stripe session...");
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
-      line_items: [
-        {
-          price_data: {
-            currency: "eur",
-            product_data: { name: "€5 Test Credits" },
-            unit_amount: 500, // €5.00
-          },
-          quantity: 1,
+      line_items: [{
+        price_data: {
+          currency: "eur",
+          product_data: { name: "5€ Credits" },
+          unit_amount: 500, // €5
         },
-      ],
+        quantity: 1,
+      }],
       mode: "payment",
-      success_url: "https://martitony.com/success",
-      cancel_url: "https://martitony.com/cancel",
+      success_url: `${process.env.BASE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.BASE_URL}/cancel`,
+      metadata: { userId },
     });
 
-    console.log("✅ Session created:", session.id);
     res.status(200).json({ url: session.url });
-  } catch (error) {
-    console.error("❌ Stripe error:", error);
-    res.status(500).json({ error: error.message });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Stripe checkout creation failed" });
   }
 }

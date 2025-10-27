@@ -1,41 +1,91 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 
-export default function App() {
-  const handleCheckout = async () => {
+export default function RegisterForm() {
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState("");
+  const [userId, setUserId] = useState(localStorage.getItem("userId"));
+  const [credits, setCredits] = useState(null);
+
+  // Fetch user credits
+  useEffect(() => {
+    if (!userId) return;
+    fetch(`/api/user?userId=${userId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) setCredits(data.credits);
+      });
+  }, [userId]);
+
+  // Register user
+  const handleRegister = async () => {
+    if (!username) return setStatus("❌ Enter username");
+
+    setStatus("Registering...");
     try {
-      const res = await fetch("/api/payment", { method: "POST" });
+      const res = await fetch("/api/user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, email }),
+      });
       const data = await res.json();
-
-      if (data.url) {
-        window.location.href = data.url; // Redirect to Stripe checkout
+      if (data.success) {
+        localStorage.setItem("userId", data.userId);
+        setUserId(data.userId);
+        setCredits(data.credits);
+        setStatus(`✅ Registered! Credits: ${data.credits}`);
       } else {
-        alert("❌ Stripe checkout failed");
-        console.error("Stripe error:", data);
+        setStatus("❌ " + (data.error || "Registration failed"));
       }
-    } catch (err) {
-      alert("❌ Stripe request failed");
-      console.error(err);
+    } catch {
+      setStatus("❌ Network error");
+    }
+  };
+
+  // Start Stripe checkout
+  const handleBuyCredits = async () => {
+    if (!userId) return setStatus("❌ Register first");
+
+    try {
+      const res = await fetch("/api/payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+      else setStatus("❌ Failed to create checkout session");
+    } catch {
+      setStatus("❌ Stripe request failed");
     }
   };
 
   return (
-    <div style={{ textAlign: "center", marginTop: "100px" }}>
-      <h1>💳 Stripe Checkout Test</h1>
-      <p>Click the button to test a €5 payment.</p>
-      <button
-        onClick={handleCheckout}
-        style={{
-          backgroundColor: "#635BFF",
-          color: "white",
-          padding: "12px 24px",
-          fontSize: "18px",
-          border: "none",
-          borderRadius: "6px",
-          cursor: "pointer",
-        }}
-      >
-        Pay €5 Test
-      </button>
+    <div className="p-6 text-center">
+      {!userId && (
+        <>
+          <input
+            placeholder="Username"
+            value={username}
+            onChange={e => setUsername(e.target.value)}
+          />
+          <input
+            placeholder="Email (optional)"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+          />
+          <button onClick={handleRegister}>Register</button>
+        </>
+      )}
+
+      {userId && (
+        <>
+          <p>Credits: {credits !== null ? credits : "..."}</p>
+          <button onClick={handleBuyCredits}>Buy €5 Credits</button>
+        </>
+      )}
+
+      <p>{status}</p>
     </div>
   );
 }
