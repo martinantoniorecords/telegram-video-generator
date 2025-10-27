@@ -3,21 +3,12 @@ import React, { useState, useEffect } from "react";
 export default function RegisterForm() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState("");
-  const [userId, setUserId] = useState(localStorage.getItem("userId"));
+  const [userId, setUserId] = useState(localStorage.getItem("userId") || "");
   const [credits, setCredits] = useState(null);
+  const [status, setStatus] = useState("");
 
-  // Fetch credits if user already registered or returning from Stripe
+  // Fetch credits if user already registered
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const successCredits = urlParams.get("credits");
-    if (successCredits) {
-      setCredits(Number(successCredits));
-      setStatus("✅ Purchase successful!");
-      // Remove credits param from URL
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-
     if (!userId) return;
 
     async function fetchCredits() {
@@ -51,7 +42,7 @@ export default function RegisterForm() {
 
       const data = await res.json();
       if (data.success) {
-        localStorage.setItem("userId", data.id);
+        localStorage.setItem("userId", data.id); // store the UUID
         setUserId(data.id);
         setCredits(data.credits);
         setStatus(`✅ Registered! Credits: ${data.credits}`);
@@ -71,19 +62,20 @@ export default function RegisterForm() {
       return;
     }
 
+    setStatus("Creating Stripe checkout...");
+
     try {
-      // This triggers redirect to Stripe Checkout
       const res = await fetch("/api/payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: userId }),
+        body: JSON.stringify({ id: userId }), // send UUID
       });
 
-      if (res.redirected) {
-        window.location.href = res.url; // redirect to Stripe
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url; // redirect to Stripe
       } else {
-        const data = await res.json();
-        setStatus("❌ " + (data.error || "Stripe checkout failed"));
+        setStatus("❌ Failed to create checkout session");
       }
     } catch (err) {
       console.error(err);
