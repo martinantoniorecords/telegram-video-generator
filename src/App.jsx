@@ -1,95 +1,56 @@
 import React, { useState, useEffect } from "react";
 
-export default function RegisterForm() {
+export default function App() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
-  const [credits, setCredits] = useState(0);
-  const [status, setStatus] = useState("");
   const [userId, setUserId] = useState(localStorage.getItem("userId"));
+  const [credits, setCredits] = useState(null);
+  const [status, setStatus] = useState("");
 
-  // Fetch user info if already registered
   useEffect(() => {
     if (!userId) return;
-
-    async function fetchUser() {
-      try {
-        const res = await fetch(`/api/user?id=${userId}`);
-        const data = await res.json();
-        if (data.success) {
-          setUsername(data.user.username);
-          setEmail(data.user.email);
-          setCredits(data.user.credits);
-        }
-      } catch (err) {
-        console.error(err);
-      }
-    }
-
-    fetchUser();
+    fetch(`/api/user?id=${userId}`)
+      .then(res => res.json())
+      .then(data => setCredits(data.credits || 0))
+      .catch(console.error);
   }, [userId]);
 
-  // Register user
-  const handleRegister = async () => {
-    if (!username) {
-      setStatus("❌ Please enter a username");
-      return;
-    }
+  const registerUser = async () => {
+    if (!username) return setStatus("❌ Enter username");
 
-    setStatus("Registering...");
-
-    try {
-      const res = await fetch("/api/user", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, email, credits: 0 }), // start with 0 credits
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        localStorage.setItem("userId", data.user.id);
-        setUserId(data.user.id);
-        setCredits(data.user.credits);
-        setStatus(`✅ Registered! Credits: ${data.user.credits}`);
-      } else {
-        setStatus("❌ " + (data.error || "Registration failed"));
-      }
-    } catch (err) {
-      console.error(err);
-      setStatus("❌ Network error");
+    const res = await fetch("/api/user", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, email }),
+    });
+    const data = await res.json();
+    if (data.id) {
+      localStorage.setItem("userId", data.id);
+      setUserId(data.id);
+      setCredits(data.credits || 0);
+      setStatus(`✅ Registered! Credits: ${data.credits || 0}`);
+    } else {
+      setStatus("❌ Registration failed");
     }
   };
 
-  // Buy €5 credits via Stripe
-  const handleBuyCredits = async () => {
-    if (!userId) {
-      setStatus("❌ Please register first");
-      return;
-    }
-
-    try {
-      const res = await fetch("/api/payment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: userId }), // send correct id field
-      });
-
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url; // redirect to Stripe Checkout
-      } else {
-        setStatus("❌ Failed to create checkout session");
-      }
-    } catch (err) {
-      console.error(err);
-      setStatus("❌ Stripe request failed");
-    }
+  const buyCredits = async () => {
+    if (!userId) return setStatus("❌ Register first");
+    const res = await fetch("/api/payment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: userId }),
+    });
+    const data = await res.json();
+    if (data.url) window.location.href = data.url;
+    else setStatus("❌ Stripe request failed");
   };
 
   return (
     <div className="p-6 text-center">
       <h1 className="text-2xl font-bold mb-4">Register & Buy Credits</h1>
 
-      {!userId && (
+      {!userId ? (
         <>
           <input
             type="text"
@@ -97,30 +58,26 @@ export default function RegisterForm() {
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             className="p-2 border rounded w-64 mb-2"
-          />
-          <br />
+          /><br />
           <input
             type="email"
             placeholder="Email (optional)"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="p-2 border rounded w-64 mb-2"
-          />
-          <br />
+          /><br />
           <button
-            onClick={handleRegister}
+            onClick={registerUser}
             className="bg-blue-600 text-white px-4 py-2 rounded"
           >
             Register
           </button>
         </>
-      )}
-
-      {userId && (
+      ) : (
         <>
-          <p className="mb-2">Credits: {credits}</p>
+          <p>Credits: {credits !== null ? credits : "..."}</p>
           <button
-            onClick={handleBuyCredits}
+            onClick={buyCredits}
             className="bg-green-600 text-white px-4 py-2 rounded mt-2"
           >
             Buy €5 Credits
@@ -128,7 +85,7 @@ export default function RegisterForm() {
         </>
       )}
 
-      <p className="mt-3 text-gray-700">{status}</p>
+      <p className="mt-3">{status}</p>
     </div>
   );
 }

@@ -1,13 +1,14 @@
 import Stripe from "stripe";
+import { supabase } from "./db"; // your existing supabase client
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).end("Method Not Allowed");
+  if (req.method !== "POST") return res.status(405).end();
 
-  const { id } = req.body; // user.id from Supabase
+  const { id } = req.body; // user id from Supabase
 
-  if (!id) return res.status(400).json({ error: "Missing user id" });
+  if (!id) return res.status(400).json({ error: "User id missing" });
 
   try {
     const session = await stripe.checkout.sessions.create({
@@ -15,23 +16,22 @@ export default async function handler(req, res) {
       line_items: [
         {
           price_data: {
-            currency: "eur",
-            product_data: { name: "5€ Credits" },
-            unit_amount: 500, // €5
+            currency: "usd",
+            product_data: { name: "5 Credits" },
+            unit_amount: 500, // $5
           },
           quantity: 1,
         },
       ],
       mode: "payment",
-      metadata: { user_id: id }, // store user id like PHP
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/success?id=${id}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/canceled`,
+      success_url: `${process.env.NEXT_PUBLIC_URL}/?success=true`,
+      cancel_url: `${process.env.NEXT_PUBLIC_URL}/?canceled=true`,
+      metadata: { userId: id },
     });
 
-    // Just redirect like your PHP script
-    res.redirect(303, session.url);
+    res.json({ url: session.url });
   } catch (err) {
     console.error(err);
-    res.status(500).send("Stripe server error");
+    res.status(500).json({ error: "Stripe session creation failed" });
   }
 }
