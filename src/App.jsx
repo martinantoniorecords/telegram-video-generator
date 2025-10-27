@@ -16,6 +16,8 @@ export default function RegisterForm() {
         const res = await fetch(`/api/user?id=${userId}`);
         const data = await res.json();
         if (data.success) {
+          setUsername(data.user.username);
+          setEmail(data.user.email);
           setCredits(data.user.credits);
         }
       } catch (err) {
@@ -26,6 +28,7 @@ export default function RegisterForm() {
     fetchUser();
   }, [userId]);
 
+  // Register user
   const handleRegister = async () => {
     if (!username) {
       setStatus("❌ Please enter a username");
@@ -38,11 +41,7 @@ export default function RegisterForm() {
       const res = await fetch("/api/user", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username,
-          email,
-          credits, // start with user-specified credits (optional)
-        }),
+        body: JSON.stringify({ username, email, credits: 0 }), // start with 0 credits
       });
 
       const data = await res.json();
@@ -60,25 +59,23 @@ export default function RegisterForm() {
     }
   };
 
+  // Buy €5 credits via Stripe
   const handleBuyCredits = async () => {
     if (!userId) {
       setStatus("❌ Please register first");
       return;
     }
 
-    setStatus("Redirecting to Stripe...");
-
     try {
       const res = await fetch("/api/payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: userId }),
+        body: JSON.stringify({ id: userId }), // send correct id field
       });
 
       const data = await res.json();
-
       if (data.url) {
-        window.location.href = data.url;
+        window.location.href = data.url; // redirect to Stripe Checkout
       } else {
         setStatus("❌ Failed to create checkout session");
       }
@@ -104,17 +101,9 @@ export default function RegisterForm() {
           <br />
           <input
             type="email"
-            placeholder="Email"
+            placeholder="Email (optional)"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="p-2 border rounded w-64 mb-2"
-          />
-          <br />
-          <input
-            type="number"
-            placeholder="Credits (start with)"
-            value={credits}
-            onChange={(e) => setCredits(Number(e.target.value))}
             className="p-2 border rounded w-64 mb-2"
           />
           <br />
@@ -129,7 +118,7 @@ export default function RegisterForm() {
 
       {userId && (
         <>
-          <p className="mb-2">Credits: {credits !== null ? credits : "..."}</p>
+          <p className="mb-2">Credits: {credits}</p>
           <button
             onClick={handleBuyCredits}
             className="bg-green-600 text-white px-4 py-2 rounded mt-2"
